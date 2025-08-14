@@ -6,8 +6,7 @@
     HoursThisMonth = 160,
     BugsFixed = 6
 };
-
-var employeeReportCreator = new EmployeeReportCreator();
+var employeeReportCreator = new EmployeeReportCreator(new File(), new EmployeeFileNameBuilder());
 employeeReportCreator.CreateReportFor(employee);
 
 Console.WriteLine("Done!");
@@ -16,67 +15,46 @@ Console.ReadKey();
 public interface IEmployeeReportCreator
 {
     void CreateReportFor(Employee employee);
-    void SaveToFile(string path, string contents);
+}
+
+public interface IFile
+{
+    public void SaveToFile(string path, string contents);
+}
+
+public class File : IFile {
+    public void SaveToFile(string path, string contents) {
+        System.IO.File.WriteAllText(path, contents);
+    }
 }
 
 public class EmployeeReportCreator : IEmployeeReportCreator
 {
+    private IFile _file;
+    private IEmployeeFileNameBuilder _employeeFileNameBuilder;
+
+    public EmployeeReportCreator(IFile file, IEmployeeFileNameBuilder employeeFileNameBuilder) {
+        _file = file;
+        _employeeFileNameBuilder = employeeFileNameBuilder;
+    }
+
     public void CreateReportFor(Employee employee)
     {
-        ReportGenerator reportGenerator;
-
-        if (employee.Position == "Developer")
-        {
-            reportGenerator = new DeveloperReportGenerator();
-        }
-        else
-        {
-            reportGenerator = new ReportGenerator();
-        }
-
-        var report = reportGenerator.Generate(employee);
-
-        SaveToFile(BuildFileName(employee), report);
-    }
-
-    public void SaveToFile(string path, string contents)
-    {
-        File.WriteAllText(path, contents);
-    }
-
-    private string BuildFileName(Employee employee)
-    {
-        return $"{employee.FirstName}_{employee.LastName}.txt";
+        var report = employee.GenerateReport();
+        var fileName = _employeeFileNameBuilder.BuildFileName(employee.FirstName, employee.LastName);
+        _file.SaveToFile(fileName, report);
     }
 }
 
-public class ReportGenerator
-{
-    public virtual string Generate(Employee employee)
-    {
-        return
-            $"{employee.FirstName} {employee.LastName}," +
-            $" working as {employee.Position}," +
-            $" worked {employee.HoursThisMonth} hours this month.";
-    }
+public interface IEmployeeFileNameBuilder {
+    public string BuildFileName(string FirstName, string LastName);
 }
 
-public class DeveloperReportGenerator : ReportGenerator
-{
-    public override string Generate(Employee employee)
-    {
-        if (employee.Position != "Developer")
-        {
-            throw new InvalidOperationException(
-                "This report can only be generated for developers");
-        }
-
-        return
-            $"{employee.FirstName} {employee.LastName}," +
-            $" working as {employee.Position}," +
-            $" worked {employee.HoursThisMonth} hours this month" +
-            $" and fixed {(employee as Developer).BugsFixed} bugs.";
-    }
+public class EmployeeFileNameBuilder : IEmployeeFileNameBuilder {
+    
+    public string BuildFileName(string FirstName, string LastName) {
+        return $"{FirstName}_{LastName}.txt";
+    }    
 }
 
 public class Employee
@@ -85,10 +63,25 @@ public class Employee
     public string LastName { get; init; }
     public string Position { get; init; }
     public int HoursThisMonth { get; init; }
+
+    public virtual string GenerateReport()
+    {
+        return
+            $"{FirstName} {LastName}," +
+            $" working as {Position}," +
+            $" worked {HoursThisMonth} hours this month.";
+    }
 }
 
 public class Developer : Employee
 {
     public int BugsFixed { get; init; }
+
+    public override string GenerateReport() {
+        return 
+        base.GenerateReport()
+        + $" and fixed {BugsFixed} bugs.";
+
+    }
 }
 
